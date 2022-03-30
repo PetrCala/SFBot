@@ -2,7 +2,7 @@
 from pynput.keyboard import Key
 
 from static import *
-from base import SFBase
+from base import SFBase, keyboard
 
 
 class TavernBot(SFBase):
@@ -14,7 +14,10 @@ class TavernBot(SFBase):
     def main(self):
         '''Main method of the TavernBot class.
         '''
-        self.doQuest()
+        if not self.game_focused:
+            self.focusGame()
+        self.drinkBeer()
+        #click(423,69) #Navbar
         return None
 
     def getQuestInfo(self):
@@ -38,7 +41,7 @@ class TavernBot(SFBase):
         Open a tavern window, select the best quest based on the desired parameters,
         go on this quest and optionally skip it and get the rewards.
         '''
-        self.changeWindow(SF_WINDOW_TAVERN)
+        self.changeGameWindow(SF_WINDOW_TAVERN)
         self.useKey(Key.enter) #Open quest log
         self.calculateOptimalQuest()
         self.startOptimalQuest()
@@ -54,7 +57,8 @@ class TavernBot(SFBase):
         '''
         if not beers > 0:
             raise ValueError('You must drink at least one beer')
-        keys = ['right']
+        self.changeGameWindow(SF_WINDOW_TAVERN)
+        keys = [Key.right]
         [keys.append(Key.enter) for i in range(beers)]
         keys.append(Key.esc)
         self.useKeys(keys) #Drink

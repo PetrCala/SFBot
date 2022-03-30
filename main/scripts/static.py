@@ -10,4 +10,10 @@ SF_WINDOWS_HOTKEYS = {
     SF_WINDOW_OPTIONS: 'o',
     SF_WINDOW_TAVERN: 't',
 }
-SF_BASE_WINDOW = SF_WINDOW_OPTIONS #Base window
+SF_BASE_WINDOW = SF_WINDOW_OPTIONS
+
+SF_WEBSITE = 's26.sfgame.cz'
+SF_NAME = 'Shakes & Fidget'
+
+DEFAULT_BROWSER = 'Google Chrome'
+INSTALLED_APPS = ['Google Chrome']

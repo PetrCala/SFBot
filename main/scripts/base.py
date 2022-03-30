@@ -1,12 +1,14 @@
-﻿from abc import abstractproperty
-from ctypes import windll
+﻿from ctypes import windll
 import cv2
-from PIL import ImageGrab
 from cv2 import mean #Capturing screen
+from PIL import ImageGrab
+import win32gui
 #import pytesseract #Text recognition
-import numpy as np
+
 from directKeys import click, queryMousePosition, moveMouseTo #For mouse movement
-from pynput.keyboard import Key, Controller
+from pynput.keyboard import Key, HotKey, Controller
+
+import numpy as np
 import time
 import math
 import sys
@@ -23,26 +25,78 @@ class SFBase():
         self.screen_size = self.getScreenSize()
         self.screen_pos = self.getScreenCoordinates(self.screen_size) #Position/coordinates of the screen
         self.neutral_screen = self.getGameNeutralCoords()
-        self.open_window = None
-        self.setBaseWindow()
+        self.game_window = None #Currently open window in the game
+        self.game_focused = False
+        #self.setBaseWindow()
 
     def main(self):
         '''Main method of the Base class
         '''
         return None
     
-    def setBaseWindow(self):
-        '''Open the default window and set the 'open_window' property to this window.
+    @property
+    def numbers(self):
+        '''A list of the 10 roman numbers as strings. Used for keyboard input.
         '''
-        self.focusGame()
-        self.changeWindow(SF_BASE_WINDOW, force = True, reset = False)
-        return None
+        return [str(i) for i in range(11)]
 
+    def focusApp(self, app_name:str, force_open = False):
+        '''Specify the name of the app which should be focused and bring this app into focus.
+
+        :args:
+            app_name[str] - Name of the window to focus
+            force_open[bool] - If True, open the window if it is not open. Defaults to False.
+
+        :returns:
+            hwnd[int] - Handle of the window in focus.
+        '''
+        hwnd = self.getWindowHwnd(app_name) #Serves also as a check for window presence
+        if (hwnd is None) and force_open:
+            self.openApp(app_name)
+            hwnd = self.getWindowHwnd(app_name)
+            if hwnd is None:
+                raise SystemError('App window could not be located.')
+        if hwnd is not None:
+            win32gui.SetForegroundWindow(hwnd)
+        return hwnd
+        
     def focusGame(self):
         '''Bring the game window into focus. Allows for keyboard input.
         '''
-        x, y = self.neutral_screen[0], self.neutral_screen[1]
-        return click(x,y)
+        hwnd = self.focusApp(DEFAULT_BROWSER) #Focus the window and get its handle
+        if not self.gameIsFocused(hwnd):
+            self.openWebsite(SF_WEBSITE)
+        self.game_focused = True
+        print('Game in focus')
+        return None
+
+    def openApp(self, app_name):
+        if not app_name in INSTALLED_APPS:
+            raise ValueError('The system can not open this app. Make sure this app is installed on your computer.')
+        self.useKey(Key.cmd)
+        self.useKeys(app_name, sleep = False)
+        time.sleep(0.5)
+        self.useKey(Key.enter)
+        return None
+
+    def setBaseWindow(self):
+        '''Open the default game window and set the 'game_window' property to this window.
+        '''
+        self.focusGame()
+        self.changeGameWindow(SF_BASE_WINDOW, force = True, reset = False)
+        return None
+
+    def openWebsite(self, website_name:str):
+        '''Open a website in a browser. Assume the browser is already open.
+
+        Args:
+            website_name[str]: URL of the website to be opened.
+        '''
+        self.useKey(Key.f6)
+        self.useKeys(SF_WEBSITE, sleep = False)
+        self.useKey(Key.enter)
+        time.sleep(10)
+        return None
 
     def getGameNeutralCoords(self):
         '''Return the coordinates, where the game window is neutral and can be clicked without
@@ -52,7 +106,7 @@ class SFBase():
         y = 150 #TBA
         return [x, y]
 
-    def changeWindow(self, window_name, force = True, reset = True):
+    def changeGameWindow(self, window_name, force = True, reset = True):
         '''Change the open window. Must be a different window than the current one, if force is not True.
         Also change the information about the open window to the one being opened.
 
@@ -65,15 +119,15 @@ class SFBase():
         '''
         if not window_name in SF_WINDOWS:
             raise ValueError(f'{window_name} is not a recognized window.')
-        if window_name is self.open_window and not force: #Window already open
+        if window_name is self.game_window and not force: #Window already open
             return None
         if reset:
-            self.getWindow(SF_BASE_WINDOW)
-        self.getWindow(window_name)
-        self.open_window = window_name
+            self.getGameWindow(SF_BASE_WINDOW)
+        self.getGameWindow(window_name)
+        self.game_window = window_name
         return None
 
-    def getWindow(self, window_name):
+    def getGameWindow(self, window_name):
         '''Send the application a hotkey which corresponds to the window which should be open.
 
         Does not change the information about which window is open.
@@ -153,21 +207,62 @@ class SFBase():
         print(f'The mouse position is\nx:{x}\ny:{y}')
         return None
 
-    def useKeys(self, keys:list):
-        '''For each key in a list of strings, press this key.
+    def useKeys(self, keys, sleep = True):
+        '''For each key in keys, press this key. Keys can be any iterable object.
         '''
         for key in keys:
-            self.useKey(key)
+            self.useKey(key, sleep = sleep)
         return None
 
-    @staticmethod
-    def useKey(key):
-        '''Press and release a given key.
+    def useKey(self, key, method = 'tap', sleep = True):
+        '''An extended method for handling more complex key pressing.
+
+        :args:
+            key - Key to be pressed. Accepts all inputs of pynput, along with roman numbers in a string form (i.e. '5').
+            method[str] - Method by which the key shall be used. Must be an attribute of the keyboard.
+            sleep[bool] - If true, insert a 0.2 sleep time after the key press. Defaults to True.
         '''
-        keyboard.press(key)
-        keyboard.release(key)
-        time.sleep(0.2)
+        if not hasattr(keyboard, method):
+            raise ValueError('You are trying to perform an invalid operation on the keyboard.')
+        if key in self.numbers:
+            key = self.num_key(key) #Parse a roman number
+        getattr(keyboard, method)(key) #Tap, press,... the key
+        if sleep:
+            time.sleep(0.5)
         return None
+
+    def num_key(self, key):
+        '''Convert the string corresponding to a roman number to a key code legible by the keyboard.
+        '''
+        if not key in self.numbers:
+            raise ValueError('Only roman numbers can be converted.')
+        return keyboard._KeyCode(char = key)
+
+    @staticmethod
+    def getWindowHwnd(window_name:str):
+        '''Specify a window name and return its window handle. Must have only one window with said name open.
+
+        :return:
+            hwnd -  Handle of the said window.
+        '''
+        windows = []
+        def callback(hwnd, extra):
+            if window_name in win32gui.GetWindowText(hwnd):
+                windows.append(hwnd)
+            return True
+        win32gui.EnumWindows(callback, None)
+        if windows == []: #Window not found
+            return None
+        elif len(windows) > 1:
+            raise ValueError('Multiple windows open.')
+        return windows[0]
+
+    @staticmethod
+    def gameIsFocused(hwnd):
+        name = win32gui.GetWindowText(hwnd)
+        if SF_NAME in name:
+            return True
+        return False
 
     @staticmethod
     def mouseOnScreen(screen_pos):
@@ -209,3 +304,6 @@ class SFBase():
     @staticmethod
     def dist(x1, y1, x2, y2):
         return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+
+if __name__ == '__main__':
+    B = SFBase()
