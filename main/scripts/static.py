@@ -12,8 +12,9 @@ SF_WINDOWS_HOTKEYS = {
 }
 SF_BASE_WINDOW = SF_WINDOW_OPTIONS
 
+APP_NAME = 'SFBot'
 SF_WEBSITE = 's26.sfgame.cz'
 SF_NAME = 'Shakes & Fidget'
 
-DEFAULT_BROWSER = 'Google Chrome'
-INSTALLED_APPS = ['Google Chrome']
+BROWSER_NAME = 'Google Chrome'
+BROWSER_PATH = 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe %s'

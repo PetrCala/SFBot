@@ -3,6 +3,7 @@ import cv2
 from cv2 import mean #Capturing screen
 from PIL import ImageGrab
 import win32gui
+import webbrowser
 #import pytesseract #Text recognition
 
 from directKeys import click, queryMousePosition, moveMouseTo #For mouse movement
@@ -18,16 +19,16 @@ from static import *
 windll.user32.SetProcessDPIAware() #Make windll properly aware of your hardware
 keyboard = Controller()
 
+class classproperty(property):
+    def __get__(self, cls, owner):
+        return classmethod(self.fget).__get__(None, owner)()
+
 class SFBase():
     def __init__(self):
         '''A constructor for the SFBase class.
         '''
-        self.screen_size = self.getScreenSize()
-        self.screen_pos = self.getScreenCoordinates(self.screen_size) #Position/coordinates of the screen
-        self.neutral_screen = self.getGameNeutralCoords()
-        self.game_window = None #Currently open window in the game
-        self.game_focused = False
-        #self.setBaseWindow()
+        self.game_pos = self.getGameCoordinates(self.screen_pos) # Position/coordinates of the game
+        self.game_window = None # Currently open window in game
 
     def main(self):
         '''Main method of the Base class
@@ -39,44 +40,31 @@ class SFBase():
         '''A list of the 10 roman numbers as strings. Used for keyboard input.
         '''
         return [str(i) for i in range(11)]
-
-    def focusApp(self, app_name:str, force_open = False):
-        '''Specify the name of the app which should be focused and bring this app into focus.
-
-        :args:
-            app_name[str] - Name of the window to focus
-            force_open[bool] - If True, open the window if it is not open. Defaults to False.
-
-        :returns:
-            hwnd[int] - Handle of the window in focus.
-        '''
-        hwnd = self.getWindowHwnd(app_name) #Serves also as a check for window presence
-        if (hwnd is None) and force_open:
-            self.openApp(app_name)
-            hwnd = self.getWindowHwnd(app_name)
-            if hwnd is None:
-                raise SystemError('App window could not be located.')
-        if hwnd is not None:
-            win32gui.SetForegroundWindow(hwnd)
-        return hwnd
         
     def focusGame(self):
         '''Bring the game window into focus. Allows for keyboard input.
         '''
-        hwnd = self.focusApp(DEFAULT_BROWSER) #Focus the window and get its handle
-        if not self.gameIsFocused(hwnd):
-            self.openWebsite(SF_WEBSITE)
-        self.game_focused = True
-        print('Game in focus')
+        hwnd = self.getWindowHwnd(SF_NAME)
+        if hwnd is None:
+            return self.openGame() # Automatic focus
+        win32gui.SetForegroundWindow(hwnd)
+        self.maximizeWindow()
+        return time.sleep(0.2)
+
+    def openGame(self):
+        '''Open the Shakes & Fidget game in browser. Automatically opens the browser and
+            sets this window into foreground.
+        '''
+        webbrowser.get(BROWSER_PATH).open(SF_WEBSITE)
+        time.sleep(15)
         return None
 
-    def openApp(self, app_name):
-        if not app_name in INSTALLED_APPS:
-            raise ValueError('The system can not open this app. Make sure this app is installed on your computer.')
-        self.useKey(Key.cmd)
-        self.useKeys(app_name, sleep = False)
-        time.sleep(0.5)
-        self.useKey(Key.enter)
+    def maximizeWindow(self):
+        '''Maximize a window, which is currently in the foreground.
+        '''
+        self.useKey(Key.cmd, method = 'press', sleep = False)
+        self.useKey(Key.up, sleep = False)
+        self.useKey(Key.cmd, method = 'release', sleep = False)
         return None
 
     def setBaseWindow(self):
@@ -85,26 +73,6 @@ class SFBase():
         self.focusGame()
         self.changeGameWindow(SF_BASE_WINDOW, force = True, reset = False)
         return None
-
-    def openWebsite(self, website_name:str):
-        '''Open a website in a browser. Assume the browser is already open.
-
-        Args:
-            website_name[str]: URL of the website to be opened.
-        '''
-        self.useKey(Key.f6)
-        self.useKeys(SF_WEBSITE, sleep = False)
-        self.useKey(Key.enter)
-        time.sleep(10)
-        return None
-
-    def getGameNeutralCoords(self):
-        '''Return the coordinates, where the game window is neutral and can be clicked without
-            triggering an event.
-        '''
-        x = 10 #TBA
-        y = 150 #TBA
-        return [x, y]
 
     def changeGameWindow(self, window_name, force = True, reset = True):
         '''Change the open window. Must be a different window than the current one, if force is not True.
@@ -138,21 +106,83 @@ class SFBase():
         self.useKey(key)
         return None
 
-    def createScreen(self, screen_pos = None):
-        screen_pos = self.screen_pos if screen_pos is None else screen_pos #Defaults to the whole screen
-        screen = np.array(ImageGrab.grab(bbox=screen_pos))
-        screen = cv2.cvtColor(screen, cv2.COLOR_BGR2RGB) #Original color scale
-        #screen = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY) #Grey color scale
-        return screen
+    def getGameCoordinates(self, screen_pos:list, focus:bool = True):
+        '''Return a list of 4 coordinates marking the game screen.
 
-    def openScreen(self):
-        '''Open the screenshot for viewing.
+        :args:
+            screen_pos[list] - Position of the screen.
+            focus[bool] - If True, focus the game before calculating the coordinates.
+                Defaults to True.
         '''
-        win_name = 'Ekura screenshot'
-        window_res = [int(self.screen_size[0]*0.9), int(self.screen_size[1]*0.9)]
+        if focus:
+            self.focusGame()
 
-        screen = self.createScreen() #Take a screenshot
-        
+        # Find X axis coordinates of the game screen
+        x_start, x_end = screen_pos[0], screen_pos[2] # Left and right screen border - x axis
+        y_middle = int(screen_pos[2]/2) # Middle pixel of screen on the y axis
+        y_slice = self.createScreen([x_start, y_middle, x_end, y_middle + 1])[0] # Take a slice of the screen
+        if not len(y_slice) == x_end:
+            raise SystemError('Failed to take the screenshot')
+        while y_slice[x_start] == 0:
+            x_start += 1 # Find left edge of game screen
+        while y_slice[x_end - 1] == 0:
+            x_end -= 1 # Find right edge of game screen
+        if x_start == screen_pos[2] or x_end == screen_pos[0]:
+            raise ValueError('Game not found or in full screen.') # Possibly handle this case later
+
+        # Find Y axis coordinates of the game screen
+        y_start, y_end = screen_pos[1], screen_pos[3]
+        x_slice = self.createScreen([x_start, y_start, x_start + 1, y_end])#.flatten()
+        if not len(x_slice) == y_end:
+            raise SystemError('Failed to take the screenshot')
+        while x_slice[y_start] > 50: # Might be adjusted
+            y_start += 1
+        while x_slice[y_end - 1] > 50:
+            y_end -= 1
+        if y_start == screen_pos[3] or y_end == screen_pos[1]:
+            raise ValueError('Game not found or in full screen.')
+
+        return [x_start, y_start, x_end, y_end]
+
+    def getScaleFactors(self):
+        '''Return a list of two floats representing factors by which
+        to scale when calculating distance.
+
+        Args:
+            game_pos[list]: Coordinates of the game window.
+        '''
+        pass
+
+    def createScreen(self, screen_pos:list, color_scale = 'gray'):
+        '''Return a numpy array representing pixels on a screen. Specify the range
+        of the screen with "screen_pos".
+
+        :args:
+            screen_pos[list] - A list of 4 integers specifying the range where
+                the screen should be taken.
+            color_scale[str] - Color scale which the screenshot should take.
+                Can be set to 'gray', 'orig'.
+        '''
+        if not len(screen_pos) == 4:
+            raise ValueError('The screen_pos argument must be a list of length 4')
+        screen = np.array(ImageGrab.grab(bbox=screen_pos))
+        if color_scale == 'gray':
+            return cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)
+        elif color_scale == 'orig':
+            return cv2.cvtColor(screen, cv2.COLOR_BGR2RGB) #Original color scale
+        raise ValueError('The color_scale argument is misspecified.')
+
+    def openScreen(self, win_name = 'Window'):
+        '''Open the screenshot for viewing.
+
+        :args:
+            win_name[str] - Name of the window.
+        '''
+        screen_size = self.getScreenSize()
+        window_res = [int(screen_size[0]*0.9), int(screen_size[1]*0.9)]
+        game_coords = self.getGameCoordinates()
+        screen = self.createScreen(game_coords) #Take a screenshot
+    
         cv2.namedWindow(win_name, cv2.WINDOW_NORMAL) # Create a Named Window
         cv2.moveWindow(win_name, 0, 0) # Move it to (X,Y)
         cv2.imshow(win_name, screen) # Show the Image in the Window
@@ -162,7 +192,8 @@ class SFBase():
 
     def getPixelRGB(self):
         '''Get a RGB value of the pixel the mouse is pointing at.
-        Returns:
+        
+        :return:
             list: RGB value returned as a list in the order R,G,B.
         '''
         assert self.mouseOnScreen(self.screen_pos), 'The mouse is not on screen'
@@ -228,7 +259,7 @@ class SFBase():
             key = self.num_key(key) #Parse a roman number
         getattr(keyboard, method)(key) #Tap, press,... the key
         if sleep:
-            time.sleep(0.5)
+            time.sleep(0.7)
         return None
 
     def num_key(self, key):
@@ -258,13 +289,6 @@ class SFBase():
         return windows[0]
 
     @staticmethod
-    def gameIsFocused(hwnd):
-        name = win32gui.GetWindowText(hwnd)
-        if SF_NAME in name:
-            return True
-        return False
-
-    @staticmethod
     def mouseOnScreen(screen_pos):
         '''Specify the screen position as a list of coordinates and check whether the mouse is within these coordinates.
         Args:
@@ -277,22 +301,20 @@ class SFBase():
         on_screen = screen_pos[0] < pos.x < screen_pos[2] and screen_pos[1] < pos.y < screen_pos[3]
         return True if on_screen else False
 
-    @staticmethod
-    def getScreenCoordinates(screen_size):
-        '''Return a list of 4 coordinates marking the beginning and end of the screen.
-        Args:
-            screen_size ([list]): A 2 elements long list denoting the screen size.
-        Returns:
-            list: A list of coordinates in the form [x1,y1, x2, y2].
+    @classproperty
+    def screen_pos(cls):
         '''
-        screen_pos = [0,0] + screen_size
-        return screen_pos
+        Return a list of 4 coordinates marking the beginning and end of the screen
+            in the form [x1,y1, x2, y2].
+        '''
+        return [0,0] + cls.screen_size
 
-    @staticmethod
-    def getScreenSize():
+    @classproperty
+    def screen_size(cls):
         '''
-        A class method for retrieving the screen resolution.
-        Returns:
+        A static property defining the screen resolution.
+        
+        :return:
             list: A list of two coordinates marking the bottom right part of the screen.
         '''
         if sys.platform[0:3] == 'win':

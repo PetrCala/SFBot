@@ -1,4 +1,5 @@
 ﻿from directKeys import click, queryMousePosition, moveMouseTo #For mouse movement
+import win32gui
 from pynput.keyboard import Key
 
 from static import *
@@ -14,9 +15,10 @@ class TavernBot(SFBase):
     def main(self):
         '''Main method of the TavernBot class.
         '''
-        if not self.game_focused:
-            self.focusGame()
-        self.drinkBeer()
+        #hwnd = self.getWindowHwnd(SF_NAME)
+        #if not self.game_focused:
+        #    self.focusGame()
+        #self.drinkBeer()
         #click(423,69) #Navbar
         return None
 
@@ -41,6 +43,8 @@ class TavernBot(SFBase):
         Open a tavern window, select the best quest based on the desired parameters,
         go on this quest and optionally skip it and get the rewards.
         '''
+        if not self.gameIsFocused():
+            self.focusGame()
         self.changeGameWindow(SF_WINDOW_TAVERN)
         self.useKey(Key.enter) #Open quest log
         self.calculateOptimalQuest()
