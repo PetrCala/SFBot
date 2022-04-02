@@ -18,3 +18,5 @@ SF_NAME = 'Shakes & Fidget'
 
 BROWSER_NAME = 'Google Chrome'
 BROWSER_PATH = 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe %s'
+
+ATTR_NAMES = ['STR', 'DEX', 'INT', 'HP', 'LUCK']

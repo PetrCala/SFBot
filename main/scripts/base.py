@@ -238,6 +238,13 @@ class SFBase():
         print(f'The mouse position is\nx:{x}\ny:{y}')
         return None
 
+    def num_key(self, key):
+        '''Convert the string corresponding to a roman number to a key code legible by the keyboard.
+        '''
+        if not key in self.numbers:
+            raise ValueError('Only roman numbers can be converted.')
+        return keyboard._KeyCode(char = key)
+
     def useKeys(self, keys, sleep = True):
         '''For each key in keys, press this key. Keys can be any iterable object.
         '''
@@ -262,12 +269,12 @@ class SFBase():
             time.sleep(0.7)
         return None
 
-    def num_key(self, key):
-        '''Convert the string corresponding to a roman number to a key code legible by the keyboard.
-        '''
-        if not key in self.numbers:
-            raise ValueError('Only roman numbers can be converted.')
-        return keyboard._KeyCode(char = key)
+    @staticmethod
+    def click(x:int, y:int, sleep:bool = True):
+        click(x, y)
+        if sleep:
+            time.sleep(0.7)
+        return None
 
     @staticmethod
     def getWindowHwnd(window_name:str):

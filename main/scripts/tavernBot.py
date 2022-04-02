@@ -1,9 +1,11 @@
-﻿from directKeys import click, queryMousePosition, moveMouseTo #For mouse movement
+﻿from directKeys import queryMousePosition, moveMouseTo #For mouse movement
 import win32gui
 from pynput.keyboard import Key
 
 from static import *
 from base import SFBase, keyboard
+
+import time
 
 
 class TavernBot(SFBase):
@@ -73,7 +75,49 @@ class TavernBot(SFBase):
         '''
         pass
 
+class CharacterBot(SFBase):
+    def __init__(self):
+        '''Constructor for the TavernBot class.
+        '''
+        super().__init__()
+        self.attributes = {
+            'STR': [782, 700],
+            'DEX': [782, 770],
+            'INT': [782, 840],
+            'HP': [1081, 700],
+            'LUCK': [1081, 770],
+        }
+
+    def upgradeAttributes(self, attr:str, times:int = 1):
+        '''Focus the character window and upgrade the desired attributes
+        using the 'upgradeAttribute' method.
+        '''
+        self.focusGame()
+        self.changeGameWindow(SF_WINDOW_CHARACTER)
+        self.upgradeAttribute(attr, times = times)
+        return None
+
+    def upgradeAttribute(self, attr:str, times:int = 1):
+        '''Upgrade an attribute of your character.
+        Assumes the character window to be open.
+
+        :args:
+            attr[str] - Name of the attribute to be upgraded.
+            times[int] - Number of times the attribute should be upgraded.
+        '''
+        attr_names = list(self.attributes.keys())
+        attr = attr.upper()
+        if not attr in attr_names:
+            raise ValueError(f'A non existent attribute. Must be one of the following: {attr_names}')
+        attr_coords = self.attributes.get(attr)
+        for _ in range(times):
+            self.click(attr_coords[0], attr_coords[1], sleep = True)
+        return None
+
+    def main(self):
+        self.upgradeAttributes('str', times = 2)
+
 if __name__ == '__main__':
-    B = TavernBot()
+    B = CharacterBot()
     B.main()
     
