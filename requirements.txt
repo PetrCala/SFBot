@@ -1,0 +1,7 @@
+﻿numpy ==1.22.3
+#path==16.4.0
+opencv-python==4.5.5.64 #cv2
+pillow==9.1.0 #PIL
+pynput==1.7.6
+pypiwin32==223
+pywin32==303 #win32gui

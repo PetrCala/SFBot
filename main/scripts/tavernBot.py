@@ -1,6 +1,8 @@
 ﻿from directKeys import queryMousePosition, moveMouseTo #For mouse movement
-import win32gui
+import pywintypes
+import win32.win32gui as win32gui
 from pynput.keyboard import Key
+import webbrowser
 
 from static import *
 from base import SFBase, keyboard
@@ -115,7 +117,9 @@ class CharacterBot(SFBase):
         return None
 
     def main(self):
-        self.upgradeAttributes('str', times = 2)
+        pass
+        #print(self.openScreen('Test window'))
+        #self.upgradeAttributes('str', times = 2)
 
 if __name__ == '__main__':
     B = CharacterBot()

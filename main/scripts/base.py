@@ -2,7 +2,8 @@
 import cv2
 from cv2 import mean #Capturing screen
 from PIL import ImageGrab
-import win32gui
+import pywintypes
+import win32.win32gui as win32gui
 import webbrowser
 #import pytesseract #Text recognition
 
@@ -10,6 +11,7 @@ from directKeys import click, queryMousePosition, moveMouseTo #For mouse movemen
 from pynput.keyboard import Key, HotKey, Controller
 
 import numpy as np
+from os import path
 import time
 import math
 import sys
@@ -27,7 +29,6 @@ class SFBase():
     def __init__(self):
         '''A constructor for the SFBase class.
         '''
-        self.game_pos = self.getGameCoordinates(self.screen_pos) # Position/coordinates of the game
         self.game_window = None # Currently open window in game
 
     def main(self):
@@ -35,6 +36,15 @@ class SFBase():
         '''
         return None
     
+    @property
+    def browser_path(self):
+        '''Path to the default browser.
+        '''
+        for i in BROWSER_PATHS:
+            if path.isfile(i):
+                return f'{i} %s'
+        raise ValueError('Browser not found')
+
     @property
     def numbers(self):
         '''A list of the 10 roman numbers as strings. Used for keyboard input.
@@ -55,7 +65,7 @@ class SFBase():
         '''Open the Shakes & Fidget game in browser. Automatically opens the browser and
             sets this window into foreground.
         '''
-        webbrowser.get(BROWSER_PATH).open(SF_WEBSITE)
+        webbrowser.get(self.browser_path).open(SF_WEBSITE)
         time.sleep(15)
         return None
 
@@ -106,16 +116,12 @@ class SFBase():
         self.useKey(key)
         return None
 
-    def getGameCoordinates(self, screen_pos:list, focus:bool = True):
-        '''Return a list of 4 coordinates marking the game screen.
-
-        :args:
-            screen_pos[list] - Position of the screen.
-            focus[bool] - If True, focus the game before calculating the coordinates.
-                Defaults to True.
+    @property
+    def game_pos(self):
+        '''Return  list of 4 coordinates marking the game screen.
         '''
-        if focus:
-            self.focusGame()
+        screen_pos = self.screen_pos
+        self.focusGame()
 
         # Find X axis coordinates of the game screen
         x_start, x_end = screen_pos[0], screen_pos[2] # Left and right screen border - x axis
@@ -178,10 +184,10 @@ class SFBase():
         :args:
             win_name[str] - Name of the window.
         '''
-        screen_size = self.getScreenSize()
+        self.focusGame()
+        screen_size = self.screen_size
         window_res = [int(screen_size[0]*0.9), int(screen_size[1]*0.9)]
-        game_coords = self.getGameCoordinates()
-        screen = self.createScreen(game_coords) #Take a screenshot
+        screen = self.createScreen(self.game_pos) #Take a screenshot
     
         cv2.namedWindow(win_name, cv2.WINDOW_NORMAL) # Create a Named Window
         cv2.moveWindow(win_name, 0, 0) # Move it to (X,Y)
@@ -335,4 +341,5 @@ class SFBase():
         return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
 if __name__ == '__main__':
-    B = SFBase()
+    #B = SFBase()
+    pass

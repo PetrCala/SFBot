@@ -17,6 +17,7 @@ SF_WEBSITE = 's26.sfgame.cz'
 SF_NAME = 'Shakes & Fidget'
 
 BROWSER_NAME = 'Google Chrome'
-BROWSER_PATH = 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe %s'
+BROWSER_PATHS = ['C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+                 'C:/Program Files/Google/Chrome/Application/chrome.exe']
 
 ATTR_NAMES = ['STR', 'DEX', 'INT', 'HP', 'LUCK']
