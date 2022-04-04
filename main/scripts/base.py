@@ -1,15 +1,16 @@
 ﻿from ctypes import windll
+from multiprocessing.sharedctypes import Value
 import cv2
 from cv2 import mean #Capturing screen
-from PIL import ImageGrab
+from PIL import ImageGrab, Image
 import pywintypes
 import win32.win32gui as win32gui
 import webbrowser
 from pynput.keyboard import Key, HotKey, Controller
-#import pytesseract #Text recognition
+import pytesseract #Text recognition
 
-from scripts.static import *
-from scripts.directKeys import click, queryMousePosition, moveMouseTo #For mouse movement
+from static import *
+from directKeys import click, queryMousePosition, moveMouseTo #For mouse movement
 
 import numpy as np
 from os import path
@@ -20,6 +21,7 @@ import sys
 
 
 windll.user32.SetProcessDPIAware() #Make windll properly aware of your hardware
+#pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files (x86)\Tesseract-OCR\tesseract' # Pytesseract path
 keyboard = Controller()
 
 class classproperty(property):
@@ -30,7 +32,7 @@ class SFBase():
     def __init__(self):
         '''A constructor for the SFBase class.
         '''
-        self.game_window = None # Currently open window in game
+        pass
 
     def main(self):
         '''Main method of the Base class
@@ -81,16 +83,16 @@ class SFBase():
     def setBaseWindow(self):
         '''Open the default game window and set the 'game_window' property to this window.
         '''
-        self.focusGame()
         self.changeGameWindow(SF_BASE_WINDOW, force = True, reset = False)
         return None
 
-    def changeGameWindow(self, window_name, force = True, reset = True):
+    def changeGameWindow(self, window_name, focus = True, force = True, reset = True):
         '''Change the open window. Must be a different window than the current one, if force is not True.
         Also change the information about the open window to the one being opened.
 
         :args:
             window_name[str] - Name of the window which shall be opened.
+            focus[bool] - If true, automatically focus the game before changing windows.
             force[bool] - If true, force the windows change, regardless of whether the window is open or not.
                 Defauts to True.
             reset[bool] - If true, also queue a window change to base window before the actual change, in
@@ -100,10 +102,11 @@ class SFBase():
             raise ValueError(f'{window_name} is not a recognized window.')
         if window_name is self.game_window and not force: #Window already open
             return None
+        if focus:
+            self.focusGame()
         if reset:
             self.getGameWindow(SF_BASE_WINDOW)
         self.getGameWindow(window_name)
-        self.game_window = window_name
         return None
 
     def getGameWindow(self, window_name):
@@ -181,7 +184,38 @@ class SFBase():
             y_dist = y_inp - y_game_start
             x = round(x_dist/game_width, 3)
             y = round(y_dist/game_height, 3)
-        return x, y
+        return [x, y]
+
+    def rangeToPixels(self, range:list):
+        '''Specify a list of 4 scale coordinates a list of four points,
+        which define (in pixels) the top left and bottom right points
+        of the range, respectively.
+
+        Args:
+            range (list): List of four points of the range, in scale.
+        '''
+        if not len(range) == 4:
+            raise ValueError('You must specify the range as a list of four points')
+        start_ = range[0:2]
+        end_ = range[2:4]
+        start = self.calculateCoords(start_)
+        end = self.calculateCoords(end_)
+        return start + end
+    
+    def readTextInRange(self, range:list, view_range:bool = False):
+        '''Specify as a list of scale coordinates the range in which
+        a text should be recognized and return the text as a string.
+
+        Args:
+            range (list) - A list of scale coordinates.
+            view_range (bool, optional) - If True, also open the screen.
+                Defaults to False.
+        '''
+        range_pixels = self.rangeToPixels(range)
+        img = self.createScreen(range_pixels, color_scale='orig')
+        if view_range:
+            self.openScreen(range_pixels, color_scale = 'orig')
+        return pytesseract.image_to_string(img)#, lang = 'ces')
 
     def createScreen(self, screen_pos:list, color_scale = 'gray'):
         '''Return a numpy array representing pixels on a screen. Specify the range
@@ -202,16 +236,20 @@ class SFBase():
             return cv2.cvtColor(screen, cv2.COLOR_BGR2RGB) #Original color scale
         raise ValueError('The color_scale argument is misspecified.')
 
-    def openScreen(self, win_name = 'Window'):
+    def openScreen(self, screen_pos:list = None, win_name:str = 'Window', color_scale = 'gray'):
         '''Open the screenshot for viewing.
 
         :args:
             win_name[str] - Name of the window.
+            screen_pos[list, optional] - List of coordinates where the screenshot
+                should be taken. If None, use the whole game screen. Defaults to None.
         '''
+        if screen_pos is None:
+            screen_pos = self.game_pos
         self.focusGame()
         screen_size = self.screen_size
         window_res = [int(screen_size[0]*0.9), int(screen_size[1]*0.9)]
-        screen = self.createScreen(self.game_pos) #Take a screenshot
+        screen = self.createScreen(screen_pos, color_scale=color_scale) #Take a screenshot
     
         cv2.namedWindow(win_name, cv2.WINDOW_NORMAL) # Create a Named Window
         cv2.moveWindow(win_name, 0, 0) # Move it to (X,Y)
@@ -261,12 +299,20 @@ class SFBase():
         print(f'Search complete.\nFound {match_count} matching pixels.\nThe search took {search_time} seconds.')
         return match_list
 
-    def printMousePosition(self):
+    def getMousePosition(self):
         m = queryMousePosition()
         x = m.x
         y = m.y
         print(f'The mouse position is\nx:{x}\ny:{y}')
-        return None
+        return [x, y]
+
+    def calculateMousePositionCoords(self):
+        '''Calculate the scale coordinates for the current mouse position.
+            Return these coordinates as a list.
+        '''
+        mouse_pos = self.getMousePosition()
+        coords = self.calculateCoords(mouse_pos, from_scale = False)
+        return coords
 
     def num_key(self, key):
         '''Convert the string corresponding to a roman number to a key code legible by the keyboard.
@@ -314,7 +360,7 @@ class SFBase():
             y_valid = 0 <= coords[1] <= 1
             if not (x_valid and y_valid):
                 raise ValueError('Scale coordinates must take on values from an interval [0,1]')
-        x, y = self.calculateCoords(coords, from_scale = from_scale)
+        x, y = self.calculateCoords(coords) if from_scale else coords
         click(x, y)
         if sleep:
             time.sleep(0.7)

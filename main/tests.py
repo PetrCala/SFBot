@@ -15,21 +15,22 @@ class testBase(unittest.TestCase):
         self.assertIsInstance(game_pos, list)
         self.assertIsInstance(screen_pos, list)
         self.assertEqual(len(game_pos), len(screen_pos))
-        for i, j in game_pos, screen_pos:
-            self.assertLessEqual(i, j)
+        self.assertGreaterEqual(game_pos[0], screen_pos[0])
+        self.assertGreaterEqual(game_pos[1], screen_pos[1])
+        self.assertLessEqual(game_pos[2], screen_pos[2])
+        self.assertLessEqual(game_pos[3], screen_pos[3])
     
     def test_calculate_coords(self):
         B = SFBase()
         game_pos = B.game_pos
         scale_coords = [0.3, 0.7]
-        pixel_coords = [int(game_pos[0]*0.3), int(game_pos[1]*0.3)]
+        pixel_coords = [int(game_pos[2]*0.3), int(game_pos[3]*0.3)]
         pixelated_coords = B.calculateCoords(scale_coords)
         scaled_coords = B.calculateCoords(pixel_coords, from_scale = False)
 
         # Test common attributes
         coords_set = [pixelated_coords, scaled_coords]
         for coords in coords_set:
-            self.assertIsInstance(coords, list)
             self.assertEqual(len(coords), 2)
         
         # Test unique attributes
@@ -46,7 +47,7 @@ class testBase(unittest.TestCase):
         hwnd_1 = win32gui.GetForegroundWindow()
         hwnd_2 = B.getWindowHwnd(browser)
 
-        self.assertIs(hwnd_1, hwnd_2)
+        self.assertEqual(hwnd_1, hwnd_2)
         self.assertIsInstance(hwnd_1, int)
 
 

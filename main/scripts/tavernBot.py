@@ -1,11 +1,13 @@
 ﻿import pywintypes
 import win32.win32gui as win32gui
 from pynput.keyboard import Key
-import webbrowser
+from PIL import ImageGrab, Image
+import pywintypes
+import pytesseract
 
-from scripts.static import *
-from scripts.base import SFBase, keyboard
-from scripts.directKeys import queryMousePosition, moveMouseTo #For mouse movement
+from static import *
+from base import SFBase, keyboard
+from directKeys import queryMousePosition, moveMouseTo #For mouse movement
 
 import time
 
@@ -47,8 +49,6 @@ class TavernBot(SFBase):
         Open a tavern window, select the best quest based on the desired parameters,
         go on this quest and optionally skip it and get the rewards.
         '''
-        if not self.gameIsFocused():
-            self.focusGame()
         self.changeGameWindow(SF_WINDOW_TAVERN)
         self.useKey(Key.enter) #Open quest log
         self.calculateOptimalQuest()
@@ -82,19 +82,11 @@ class CharacterBot(SFBase):
         '''Constructor for the TavernBot class.
         '''
         super().__init__()
-        self.attributes = {
-            'STR': [782, 700],
-            'DEX': [782, 770],
-            'INT': [782, 840],
-            'HP': [1081, 700],
-            'LUCK': [1081, 770],
-        }
 
     def upgradeAttributes(self, attr:str, times:int = 1):
         '''Focus the character window and upgrade the desired attributes
         using the 'upgradeAttribute' method.
         '''
-        self.focusGame()
         self.changeGameWindow(SF_WINDOW_CHARACTER)
         self.upgradeAttribute(attr, times = times)
         return None
@@ -107,23 +99,30 @@ class CharacterBot(SFBase):
             attr[str] - Name of the attribute to be upgraded.
             times[int] - Number of times the attribute should be upgraded.
         '''
-        attr_names = list(self.attributes.keys())
+        attr_names = list(CHAR_ATTRIBUTES.keys())
         attr = attr.upper()
         if not attr in attr_names:
             raise ValueError(f'A non existent attribute. Must be one of the following: {attr_names}')
-        attr_coords = self.attributes.get(attr)
+        attr_coords = CHAR_ATTRIBUTES.get(attr)
         for _ in range(times):
             self.click(attr_coords, sleep = True)
         return None
 
     def main(self):
-        #coords = self.calculateCoords([500, 900], from_scale=False)
-        print(self.screen_pos)
+        pass
+        #self.upgradeAttribute('LUCK', times = 2)
+        #coords = self.calculateCoords([1081, 770], from_scale=False)
+        #print(coords)
         #self.openScreen('Test window')
         #print(self.openScreen('Test window'))
         #self.upgradeAttributes('str', times = 2)
 
 if __name__ == '__main__':
     B = CharacterBot()
-    B.main()
-    
+    #text = B.readTextInRange(FORT_FIGHT_BUTTON)
+    #print(text)
+    a = pytesseract.get_languages(config='')
+    print(a)
+    #B.main()
+    #B = TavernBot()
+    #B.drinkBeer()
