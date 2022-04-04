@@ -1,11 +1,11 @@
-﻿from directKeys import queryMousePosition, moveMouseTo #For mouse movement
-import pywintypes
+﻿import pywintypes
 import win32.win32gui as win32gui
 from pynput.keyboard import Key
 import webbrowser
 
-from static import *
-from base import SFBase, keyboard
+from scripts.static import *
+from scripts.base import SFBase, keyboard
+from scripts.directKeys import queryMousePosition, moveMouseTo #For mouse movement
 
 import time
 
@@ -113,11 +113,13 @@ class CharacterBot(SFBase):
             raise ValueError(f'A non existent attribute. Must be one of the following: {attr_names}')
         attr_coords = self.attributes.get(attr)
         for _ in range(times):
-            self.click(attr_coords[0], attr_coords[1], sleep = True)
+            self.click(attr_coords, sleep = True)
         return None
 
     def main(self):
-        pass
+        #coords = self.calculateCoords([500, 900], from_scale=False)
+        print(self.screen_pos)
+        #self.openScreen('Test window')
         #print(self.openScreen('Test window'))
         #self.upgradeAttributes('str', times = 2)
 

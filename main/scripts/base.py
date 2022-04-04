@@ -5,10 +5,11 @@ from PIL import ImageGrab
 import pywintypes
 import win32.win32gui as win32gui
 import webbrowser
+from pynput.keyboard import Key, HotKey, Controller
 #import pytesseract #Text recognition
 
-from directKeys import click, queryMousePosition, moveMouseTo #For mouse movement
-from pynput.keyboard import Key, HotKey, Controller
+from scripts.static import *
+from scripts.directKeys import click, queryMousePosition, moveMouseTo #For mouse movement
 
 import numpy as np
 from os import path
@@ -16,7 +17,7 @@ import time
 import math
 import sys
 
-from static import *
+
 
 windll.user32.SetProcessDPIAware() #Make windll properly aware of your hardware
 keyboard = Controller()
@@ -121,11 +122,11 @@ class SFBase():
         '''Return  list of 4 coordinates marking the game screen.
         '''
         screen_pos = self.screen_pos
+        x_start, y_start, x_end, y_end = screen_pos # Screen borders
         self.focusGame()
 
         # Find X axis coordinates of the game screen
-        x_start, x_end = screen_pos[0], screen_pos[2] # Left and right screen border - x axis
-        y_middle = int(screen_pos[2]/2) # Middle pixel of screen on the y axis
+        y_middle = int(x_end/2) # Middle pixel of screen on the y axis
         y_slice = self.createScreen([x_start, y_middle, x_end, y_middle + 1])[0] # Take a slice of the screen
         if not len(y_slice) == x_end:
             raise SystemError('Failed to take the screenshot')
@@ -137,7 +138,6 @@ class SFBase():
             raise ValueError('Game not found or in full screen.') # Possibly handle this case later
 
         # Find Y axis coordinates of the game screen
-        y_start, y_end = screen_pos[1], screen_pos[3]
         x_slice = self.createScreen([x_start, y_start, x_start + 1, y_end])#.flatten()
         if not len(x_slice) == y_end:
             raise SystemError('Failed to take the screenshot')
@@ -150,14 +150,38 @@ class SFBase():
 
         return [x_start, y_start, x_end, y_end]
 
-    def getScaleFactors(self):
-        '''Return a list of two floats representing factors by which
-        to scale when calculating distance.
+    def calculateCoords(self, coords:list, from_scale = True):
+        '''Input a list of scale coordinates and return a list of the actual coordinates
+        for the user's screen. It is possible to calculate in reverse direction too.
 
-        Args:
-            game_pos[list]: Coordinates of the game window.
+        :args:
+            scale_coords[list] - A list of two scale coordinates marking a certain point on
+                the screen.
+            from_scale[bool, optional] - If True, input scale coordinates and return the actual
+                coordinates on user's screen. If False, do the inverse. Defaults to True.
+            
+        :note:
+            Scale coordinates - An initial point of [0.5,0.5] marks a point in the middle of the screen.
+                In other words, it is 50 percent from top left corner in either direction.
+            Actual coordinates - Actual pixels of the screen, such as [1000,500].
         '''
-        pass
+        if not len(coords) == 2:
+            raise ValueError('The coordinates must be input as a list of length 2')
+        x_inp, y_inp = coords
+        x_game_start, y_game_start, x_game_end, y_game_end = self.game_pos
+        game_width = x_game_end - x_game_start
+        game_height = y_game_end - y_game_start
+        if from_scale:
+            x_dist = game_width * x_inp # Distance from game left bound - x axis
+            y_dist = game_height * y_inp # Distance from game upper bound - y axis
+            x = int(x_game_start + x_dist)
+            y = int(y_game_start + y_dist)
+        else:
+            x_dist = x_inp - x_game_start
+            y_dist = y_inp - y_game_start
+            x = round(x_dist/game_width, 3)
+            y = round(y_dist/game_height, 3)
+        return x, y
 
     def createScreen(self, screen_pos:list, color_scale = 'gray'):
         '''Return a numpy array representing pixels on a screen. Specify the range
@@ -275,8 +299,22 @@ class SFBase():
             time.sleep(0.7)
         return None
 
-    @staticmethod
-    def click(x:int, y:int, sleep:bool = True):
+    def click(self, coords:list, from_scale:bool = True, sleep:bool = True):
+        '''A method for clicking inside the game.
+
+        Args:
+            coords (list): A list of scale coordinates defining where to click.
+            from_scale (bool, optional): If True, the input coords should be scale (between 0 and 1).
+            sleep (bool, optional): If True, insert a sleep time after the click. Defaults to True.
+        '''
+        if not len(coords) == 2:
+            raise ValueError('The coordinates must be input as a list of length 2')
+        if from_scale:
+            x_valid = 0 <= coords[0] <= 1
+            y_valid = 0 <= coords[1] <= 1
+            if not (x_valid and y_valid):
+                raise ValueError('Scale coordinates must take on values from an interval [0,1]')
+        x, y = self.calculateCoords(coords, from_scale = from_scale)
         click(x, y)
         if sleep:
             time.sleep(0.7)
