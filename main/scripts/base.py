@@ -57,11 +57,16 @@ class SFBase():
     def focusGame(self):
         '''Bring the game window into focus. Allows for keyboard input.
         '''
-        hwnd = self.getWindowHwnd(SF_NAME)
-        if hwnd is None:
+        hwnd = self.getWindowHwnd(BROWSER_NAME)
+        if hwnd is None: # Browser not open
             return self.openGame() # Automatic focus
+        window_name = win32gui.GetWindowText(hwnd)
         win32gui.SetForegroundWindow(hwnd)
         self.maximizeWindow()
+        if SF_NAME not in window_name: # May be under a different tab
+            found = self.searchForGameWindow(hwnd)
+            if not found:
+                return self.openGame()
         return time.sleep(0.2)
 
     def openGame(self):
@@ -72,6 +77,25 @@ class SFBase():
         time.sleep(15)
         return None
 
+    def searchForGameWindow(self, hwnd:int):
+        '''Specify the window handle of a browser and iterate through its
+        open tabs. Once the game window is found, stop and return True.
+        If the window is not found, return False.
+
+        Args:
+            hwnd (int): Window handle of the browser.
+        '''
+        initial_window = win32gui.GetWindowText(hwnd)
+        if SF_NAME in initial_window: # Game window already open
+            return True
+        new_window = None
+        while (initial_window != new_window):
+            self.changeTab()
+            new_window = win32gui.GetWindowText(hwnd)
+            if SF_NAME in new_window:
+                return True
+        return False
+
     def maximizeWindow(self):
         '''Maximize a window, which is currently in the foreground.
         '''
@@ -79,29 +103,33 @@ class SFBase():
         self.useKey(Key.up, sleep = False)
         self.useKey(Key.cmd, method = 'release', sleep = False)
         return None
+    
+    def changeTab(self):
+        '''Change browser tab.
+        '''
+        self.useKey(Key.ctrl, method = 'press', sleep = False)
+        self.useKey(Key.tab, sleep = False)
+        self.useKey(Key.ctrl, method = 'release', sleep = False)
+        return time.sleep(0.25)
 
     def setBaseWindow(self):
-        '''Open the default game window and set the 'game_window' property to this window.
+        '''Open the default game window.
         '''
         self.changeGameWindow(SF_BASE_WINDOW, force = True, reset = False)
         return None
 
-    def changeGameWindow(self, window_name, focus = True, force = True, reset = True):
+    def changeGameWindow(self, window_name, focus = True, reset = True):
         '''Change the open window. Must be a different window than the current one, if force is not True.
         Also change the information about the open window to the one being opened.
 
         :args:
             window_name[str] - Name of the window which shall be opened.
             focus[bool] - If true, automatically focus the game before changing windows.
-            force[bool] - If true, force the windows change, regardless of whether the window is open or not.
-                Defauts to True.
             reset[bool] - If true, also queue a window change to base window before the actual change, in
                 order to get the base form of the window to be opened. Defaults to True.
         '''
         if not window_name in SF_WINDOWS:
             raise ValueError(f'{window_name} is not a recognized window.')
-        if window_name is self.game_window and not force: #Window already open
-            return None
         if focus:
             self.focusGame()
         if reset:

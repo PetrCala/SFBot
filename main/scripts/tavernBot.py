@@ -119,10 +119,9 @@ class CharacterBot(SFBase):
 
 if __name__ == '__main__':
     B = CharacterBot()
+    B.focusGame()
     #text = B.readTextInRange(FORT_FIGHT_BUTTON)
-    #print(text)
-    a = pytesseract.get_languages(config='')
-    print(a)
+    #a = pytesseract.get_languages(config='')
     #B.main()
     #B = TavernBot()
     #B.drinkBeer()
